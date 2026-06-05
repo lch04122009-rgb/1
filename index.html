@@ -10,8 +10,6 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{width:100vw;height:100vh;overflow:hidden;background:linear-gradient(135deg,#0a0e1a,#1a1f3a);font-family:-apple-system,sans-serif}
-.game-container{width:100%;height:100%;position:relative}
-.game-frame{width:100%;height:100%;border:none;display:block}
 #popup{position:fixed;top:60px;right:16px;width:240px;z-index:9999;border-radius:20px;background:rgba(10,20,50,0.9);backdrop-filter:blur(20px);border:1px solid rgba(255,215,0,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.6);user-select:none;touch-action:none;max-height:calc(100vh - 140px);overflow-y:auto}
 #header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,215,0,0.05));border-bottom:1px solid rgba(255,215,0,0.2);cursor:grab;border-radius:20px 20px 0 0;position:sticky;top:0;background:rgba(10,20,50,0.95)}
 #header:active{cursor:grabbing}
@@ -61,19 +59,21 @@ body{width:100vw;height:100vh;overflow:hidden;background:linear-gradient(135deg,
 @keyframes analyzePulse{0%,100%{opacity:0.5}50%{opacity:1}}
 .shine{animation:shineAnim 0.8s}
 @keyframes shineAnim{0%{filter:brightness(1)}50%{filter:brightness(2.5)}100%{filter:brightness(1)}}
+.game-btn{position:fixed;bottom:80px;right:20px;background:linear-gradient(135deg,#ff6b35,#ff8c42);color:#fff;border:none;border-radius:50px;padding:14px 22px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 10px 30px rgba(255,107,53,0.4);z-index:10000;transition:all 0.3s;display:flex;align-items:center;gap:8px}
+.game-btn:hover{transform:translateY(-2px);box-shadow:0 15px 40px rgba(255,107,53,0.5)}
+.game-btn:active{transform:translateY(0)}
 .toggle-btn{position:fixed;bottom:20px;right:20px;background:linear-gradient(135deg,#ffd700,#ffed4e);color:#0a0e1a;border:none;border-radius:50%;width:50px;height:50px;font-size:24px;cursor:pointer;box-shadow:0 10px 30px rgba(255,215,0,0.4);z-index:10000;transition:all 0.3s;display:flex;align-items:center;justify-content:center}
 .toggle-btn:hover{transform:scale(1.1)}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:rgba(10,20,50,0.95);backdrop-filter:blur(20px);border:1px solid rgba(255,215,0,0.3);border-radius:12px;padding:12px 20px;color:#ffd700;font-size:11px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.5);z-index:99999;transition:transform 0.4s}
 .toast.show{transform:translateX(-50%) translateY(0)}
-.loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,14,26,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9998;gap:20px}
-.loading-spinner{width:50px;height:50px;border:4px solid rgba(255,215,0,0.2);border-top-color:#ffd700;border-radius:50%;animation:spin 1s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-text{color:#ffd700;font-size:14px;font-weight:700;letter-spacing:1px}
+.info-banner{position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg,#ff6b35,#ff8c42);color:#fff;padding:10px 15px;font-size:11px;font-weight:700;text-align:center;z-index:9999;display:flex;align-items:center;justify-content:center;gap:10px}
+.info-banner button{background:rgba(255,255,255,0.2);border:none;color:#fff;padding:5px 12px;border-radius:15px;font-size:10px;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
-<div class="game-container">
-  <iframe id="game-frame" class="game-frame" src="https://corsproxy.io/?https://v.hitclub.mw/?a=hitclub" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+<div class="info-banner" id="info-banner">
+  <span>🎮 Tap nút CAM để mở game Hitclub</span>
+  <button onclick="document.getElementById('info-banner').style.display='none'">✕</button>
 </div>
 <div id="popup">
   <div id="header">
@@ -113,25 +113,23 @@ body{width:100vw;height:100vh;overflow:hidden;background:linear-gradient(135deg,
     </div>
   </div>
 </div>
+<button class="game-btn" onclick="openGame()">🎮 MỞ GAME</button>
 <button class="toggle-btn" onclick="togglePopup()" title="Ẩn/Hiện tool">🎲</button>
-<div class="loading-overlay" id="loading">
-  <div class="loading-spinner"></div>
-  <div class="loading-text">Đang tải game...</div>
-</div>
 <div class="toast" id="toast"></div>
 <script>
 const API='https://era-technology-particular-domestic.trycloudflare.com/api/tx';
+const GAME_URL='https://v.hitclub.mw/?a=hitclub';
 let lastPhien=null,history=[],lastPrediction=null,correctCount=0,totalPredictions=0,currentStreak=0,popupVisible=true;
-function togglePopup(){const p=document.getElementById('popup');popupVisible=!p.style.display||p.style.display!=='none';p.style.display=popupVisible?'block':'none';showToast(popupVisible?'Hiển thị tool':'Đã ẩn tool')}
-(function(){const p=document.getElementById('popup'),h=document.getElementById('header');let drag=false,sx,sy,ox,oy;function pos(){const r=p.getBoundingClientRect();return{x:r.left,y:r.top}}function clamp(v,mi,ma){return Math.max(mi,Math.min(ma,v))}function down(ex,ey){drag=true;const p=pos();ox=p.x;oy=p.y;sx=ex;sy=ey;p.style.transition='none';h.style.cursor='grabbing'}function move(ex,ey){if(!drag)return;const dx=ex-sx,dy=ey-sy;const mx=window.innerWidth-p.offsetWidth,my=window.innerHeight-p.offsetHeight;p.style.left=clamp(ox+dx,0,mx)+'px';p.style.top=clamp(oy+dy,0,my)+'px';p.style.right='auto'}function up(){drag=false;h.style.cursor='grab'}h.addEventListener('mousedown',e=>{e.preventDefault();down(e.clientX,e.clientY)});document.addEventListener('mousemove',e=>move(e.clientX,e.clientY));document.addEventListener('mouseup',up);h.addEventListener('touchstart',e=>down(e.touches[0].clientX,e.touches[0].clientY),{passive:true});document.addEventListener('touchmove',e=>{if(drag){e.preventDefault();move(e.touches[0].clientX,e.touches[0].clientY)}},{passive:false});document.addEventListener('touchend',up)})();
-document.getElementById('game-frame').onload=function(){document.getElementById('loading').style.display='none';showToast('Đã tải game!')};
+function openGame(){window.open(GAME_URL,'_blank');showToast('🎮 Đã mở game!')}
+function togglePopup(){const p=document.getElementById('popup');popupVisible=p.style.display!=='none';p.style.display=popupVisible?'none':'block';showToast(popupVisible?'Đã ẩn tool':'Hiển thị tool')}
+(function(){const p=document.getElementById('popup'),h=document.getElementById('header');let drag=false,sx,sy,ox,oy;function pos(){const r=p.getBoundingClientRect();return{x:r.left,y:r.top}}function clamp(v,mi,ma){return Math.max(mi,Math.min(ma,v))}function down(ex,ey){drag=true;const p=pos();ox=p.x;oy=p.y;sx=ex;sy=ey;p.style.transition='none'}function move(ex,ey){if(!drag)return;const dx=ex-sx,dy=ey-sy;const mx=window.innerWidth-p.offsetWidth,my=window.innerHeight-p.offsetHeight;p.style.left=clamp(ox+dx,0,mx)+'px';p.style.top=clamp(oy+dy,0,my)+'px';p.style.right='auto'}function up(){drag=false}h.addEventListener('mousedown',e=>{e.preventDefault();down(e.clientX,e.clientY)});document.addEventListener('mousemove',e=>move(e.clientX,e.clientY));document.addEventListener('mouseup',up);h.addEventListener('touchstart',e=>down(e.touches[0].clientX,e.touches[0].clientY),{passive:true});document.addEventListener('touchmove',e=>{if(drag){e.preventDefault();move(e.touches[0].clientX,e.touches[0].clientY)}},{passive:false});document.addEventListener('touchend',up)})();
 function setDice(id,num){const el=document.getElementById(id);el.textContent=(num>=1&&num<=6)?num:'?';el.classList.remove('animate');void el.offsetWidth;el.classList.add('animate');setTimeout(()=>el.classList.remove('animate'),500)}
 function predict(hist){if(!hist||hist.length<3)return null;const r=hist.map(h=>h.ket_qua);const t=hist.map(h=>h.tong||0);let s={tai:0,xiu:0};const last=r[0];let st=1;for(let i=1;i<r.length;i++){if(r[i]===last)st++;else break}if(st>=2)s[last==='Tài'?'xiu':'tai']+=2;else s[last==='Tài'?'tai':'xiu']+=1;const l10=r.slice(0,10);const tc=l10.filter(x=>x==='Tài').length;const xc=l10.length-tc;if(tc>xc)s.xiu+=1.5;else if(xc>tc)s.tai+=1.5;else{s.tai+=0.5;s.xiu+=0.5}const avg=t.slice(0,5).reduce((a,b)=>a+b,0)/Math.min(5,t.length);if(avg<10)s.tai+=1;else if(avg>11)s.xiu+=1;const w=s.tai>=s.xiu?'Tài':'Xỉu';const d=Math.abs(s.tai-s.xiu);const c=Math.min(85,Math.max(60,60+d*5+Math.random()*8));return{value:w,pct:Math.round(c)}}
 function updateHistory(){const r=document.getElementById('history-row');r.innerHTML='';history.slice(0,14).forEach(h=>{const c=document.createElement('span');c.className='h-chip '+(h.ket_qua==='Tài'?'tai':'xiu');c.textContent=h.ket_qua==='Tài'?'T':'X';r.appendChild(c)})}
 function updateAccuracy(){if(totalPredictions<1)return;const p=Math.round(correctCount/totalPredictions*100);document.getElementById('acc-row').style.display='flex';document.getElementById('acc-bar').style.width=p+'%';document.getElementById('acc-pct').textContent=p+'%'}
-function updateStreak(){if(totalPredictions<1)return;document.getElementById('streak-row').style.display='flex';document.getElementById('streak-val').textContent=(currentStreak>0?'🔥':'')+' '+Math.abs(currentStreak)}
+function updateStreak(){if(totalPredictions<1)return;document.getElementById('streak-row').style.display='flex';document.getElementById('streak-val').textContent=(currentStreak>0?'':'')+' '+Math.abs(currentStreak)}
 function renderPrediction(pred,wrong){document.getElementById('dd-wrap').innerHTML='<div class="du-doan-box"><div class="dd-dot '+(wrong?'wrong':'')+'"></div><div class="dd-info"><div class="dd-sub">DỰ ĐOÁN</div><div id="dd-text" class="'+(wrong?'wrong':'')+'">'+pred.value+'</div><div id="dd-pct" class="'+(wrong?'wrong':'')+'">'+pred.pct+'% tin cậy</div></div></div>'}
-function showAnalyzing(){document.getElementById('dd-wrap').innerHTML='<div class="analyzing"><span class="analyzing-text">⏳ Đang phân tích...</span></div>'}
+function showAnalyzing(){document.getElementById('dd-wrap').innerHTML='<div class="analyzing"><span class="analyzing-text"> Đang phân tích...</span></div>'}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
 function processNew(data){const{kq,phien,tong,x1,x2,x3}={kq:data.ket_qua,phien:data.phien,tong:data.tong||0,x1:data.xuc_xac_1,x2:data.xuc_xac_2,x3:data.xuc_xac_3};let wrong=undefined;if(lastPrediction&&history.length>=1){const ok=lastPrediction.value===kq;totalPredictions++;if(ok){correctCount++;currentStreak=currentStreak>0?currentStreak+1:1;showToast('✅ ĐÚNG!')}else{currentStreak=currentStreak<0?currentStreak-1:-1;showToast('❌ SAI')}wrong=!ok}history.unshift({ket_qua:kq,phien:phien,tong:tong,xuc_xac_1:x1,xuc_xac_2:x2,xuc_xac_3:x3});if(history.length>20)history.pop();document.getElementById('phien-num').textContent='#'+phien;setDice('d1',x1);setDice('d2',x2);setDice('d3',x3);const kqEl=document.getElementById('kq-text');kqEl.textContent=kq;kqEl.className=kq==='Tài'?'tai shine':'xiu shine';setTimeout(()=>kqEl.classList.remove('shine'),800);document.getElementById('kq-tong').textContent='TỔNG: '+(tong||(x1+x2+x3));lastPrediction=predict(history);if(lastPrediction)renderPrediction(lastPrediction,wrong);else showAnalyzing();updateHistory();updateAccuracy();updateStreak()}
 async function fetchData(){try{const res=await fetch(API,{cache:'no-store'});if(!res.ok)return;const data=await res.json();if(!data||data.phien==null)return;const phien=Number(data.phien);if(lastPhien===null){lastPhien=phien;document.getElementById('phien-num').textContent='#'+phien;setDice('d1',data.xuc_xac_1);setDice('d2',data.xuc_xac_2);setDice('d3',data.xuc_xac_3);const kqEl=document.getElementById('kq-text');kqEl.textContent=data.ket_qua||'---';kqEl.className=data.ket_qua==='Tài'?'tai':'xiu';document.getElementById('kq-tong').textContent='TỔNG: '+(data.tong||'?');history.unshift({...data,phien});showAnalyzing();return}if(phien!==lastPhien){lastPhien=phien;processNew({...data,phien})}}catch(e){console.log('API error:',e)}}
